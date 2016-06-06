@@ -11,10 +11,15 @@ var hotKeyShift = ["alt", "shift"];
 var hotKeyCtrl = ["alt", "ctrl"];
 var hotKeyCmd = ["alt", "cmd"];
 var _mousePositions = {};
+var specificScreens = {
+    main: '',
+    second: '',
+    third: ''
+};
 
 // 自定义配置
 Phoenix.set({
-    'daemon': false,
+    'daemon': true,
     'openAtLogin': true
 });
 
@@ -133,8 +138,8 @@ function focusApplicationIfRunning(title) {
         app.hide();
         return app;
     }
-    app.activate();
     app.focus();
+    app.activate();
     message(app.name());
     return app;
 }
@@ -172,6 +177,9 @@ keys.push(Phoenix.bind('e', hotKey, function() {
 keys.push(Phoenix.bind('r', hotKey, function() {
     focusApplicationIfRunning('Mail');
 }));
+keys.push(Phoenix.bind('t', hotKey, function() {
+    focusApplicationIfRunning('Foxmail');
+}));
 
 keys.push(Phoenix.bind('a', hotKey, function() {
     focusApplicationIfRunning('钉钉');
@@ -183,12 +191,41 @@ keys.push(Phoenix.bind('d', hotKey, function() {
     focusApplicationIfRunning('QQ');
 }));
 keys.push(Phoenix.bind('f', hotKey, function() {
-    focusApplicationIfRunning('Evernote');
+    focusApplicationIfRunning('PubuIM');
 }));
 // }}}
 
 // 切换屏幕
 // {{{
+// 获取屏幕
+function getScreenIndex(win) {
+    var index = 0;
+    var screen = win.screen();
+    while (!!screen.previousScreen()) {
+        index += 1;
+        screen = screen.previousScreen();
+    }
+    return index;
+}
+
+function getLargeScreen(win) {
+}
+
+function getMacScreen(win) {
+}
+
+function fullScreen() {
+    var win = Window.focusedWindow();
+    message(win.isFullScreen());
+    if (!win.isVisible() || win.isMinimized()) return;
+
+    if (win.isFullScreen()) {
+        win.setFullScreen(false);
+    } else {
+        win.setFullScreen(true);
+    }
+}
+
 // 移动窗口屏幕
 function moveToScreen(window, screen) {
     if (!window) {
@@ -238,10 +275,10 @@ keys.push(Phoenix.bind('l', hotKey, function() {
     var currentScreen = window.screen();
     var targetScreen = window.screen().next();
     if (_.indexOf(_.map(allScreens, function(x) {
-            return x.hash();
-        }), targetScreen.hash()) >= _.indexOf(_.map(allScreens, function(x) {
-            return x.hash();
-        }), currentScreen.hash())) {
+        return x.hash();
+    }), targetScreen.hash()) >= _.indexOf(_.map(allScreens, function(x) {
+        return x.hash();
+    }), currentScreen.hash())) {
         return;
     }
     focusAnotherScreen(window, targetScreen);
@@ -254,10 +291,10 @@ keys.push(Phoenix.bind('h', hotKey, function() {
     var currentScreen = window.screen();
     var targetScreen = window.screen().previous();
     if (_.indexOf(_.map(allScreens, function(x) {
-            return x.hash();
-        }), targetScreen.hash()) <= _.indexOf(_.map(allScreens, function(x) {
-            return x.hash();
-        }), currentScreen.hash())) {
+        return x.hash();
+    }), targetScreen.hash()) <= _.indexOf(_.map(allScreens, function(x) {
+        return x.hash();
+    }), currentScreen.hash())) {
         return;
     }
     focusAnotherScreen(window, targetScreen);
@@ -297,15 +334,7 @@ keys.push(Phoenix.bind('h', hotKeyShift, function() {
 
 // 全屏幕
 keys.push(Phoenix.bind('f', hotKeyShift, function() {
-    var window = Window.focusedWindow();
-    if (!window) {
-        return;
-    }
-    if (!window.isFullScreen) {
-        return window.setFullScreen(true);
-    } else {
-        return window.setFrame(600, 400, 20, 20);
-    }
+    fullScreen();
 }));
 
 // }}}
