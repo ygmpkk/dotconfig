@@ -1,8 +1,7 @@
-'use strict';
-
 // TODO WorkSpace, 绑定快捷键，快速调出已经保存好布局的应用，支持多个Workspace间切换，将未在Workspace的应用隐藏起来
 // TODO Layout，支持快速布局，9格的方式
 // TODO Ignore apps
+// TODO 保存上一次打开的应用
 
 var keys = [];
 
@@ -17,10 +16,12 @@ var specificScreens = {
     third: ''
 };
 
+var recentApp = null;
+
 // 自定义配置
 Phoenix.set({
-    'daemon': true,
-    'openAtLogin': true
+    daemon: true,
+    openAtLogin: true
 });
 
 // 通用函数
@@ -36,7 +37,7 @@ if (!String.format) {
 
 function message(msg) {
     var modal = new Modal();
-    var frame = Screen.mainScreen().frameInRectangle();
+    var frame = Screen.main().frameInRectangle();
     var sX = frame.x;
     var sW = frame.width;
 
@@ -78,7 +79,7 @@ function assert(condition, message) {
 }
 
 function sortByMostRecent(windows) {
-    var visibleAppMostRecentFirst = _.map(Window.visibleWindowsInOrder(), function(w) {
+    var visibleAppMostRecentFirst = _.map(Window.recent(), function(w) {
         return w.hash();
     });
     var visibleAppMostRecentFirstWithWeight = _.object(visibleAppMostRecentFirst, _.range(visibleAppMostRecentFirst.length));
@@ -99,7 +100,7 @@ function save_mouse_position_for_window(window) {
 }
 
 function set_mouse_position_for_window_center(window) {
-    Mouse.moveTo({
+    Mouse.move({
         x: window.topLeft().x + window.frame().width / 2,
         y: window.topLeft().y + window.frame().height / 2
     });
@@ -117,14 +118,14 @@ function restore_mouse_position_for_window(window) {
         return;
     }
     //Phoenix.log(String.format('x: {0}, y: {1}', pos.x, pos.y));
-    Mouse.moveTo(pos);
+    Mouse.move(pos);
 }
 
 function restore_mouse_position_for_now() {
-    if (Window.focusedWindow() === undefined) {
+    if (Window.focused() === undefined) {
         return;
     }
-    restore_mouse_position_for_window(Window.focusedWindow());
+    restore_mouse_position_for_window(Window.focused());
 }
 // }}}
 
@@ -132,14 +133,16 @@ function restore_mouse_position_for_now() {
 // {{{
 function focusApplicationIfRunning(title) {
     // 启动App
+    var focusApp = App.focused()
     var app = App.launch(title);
     assert(app !== undefined);
     if (app.isActive()) {
         app.hide();
         return app;
     }
-    app.focus();
+    // app.show();
     app.activate();
+    app.focus();
     message(app.name());
     return app;
 }
@@ -152,46 +155,53 @@ function switchToLastUsedWindow(title) {
     last_used_window.focusWindow();
 }
 
-keys.push(Phoenix.bind('1', hotKey, function() {
+keys.push(new Key('1', hotKey, function() {
     focusApplicationIfRunning('iTerm');
 }));
-keys.push(Phoenix.bind('2', hotKey, function() {
+keys.push(new Key('2', hotKey, function() {
     focusApplicationIfRunning('MacVim');
 }));
-keys.push(Phoenix.bind('3', hotKey, function() {
+keys.push(new Key('3', hotKey, function() {
     focusApplicationIfRunning('Dash');
 }));
-keys.push(Phoenix.bind('4', hotKey, function() {
+keys.push(new Key('4', hotKey, function() {
     focusApplicationIfRunning('Atom');
 }));
 
-keys.push(Phoenix.bind('q', hotKey, function() {
+keys.push(new Key('q', hotKey, function() {
     focusApplicationIfRunning('Google Chrome');
 }));
-keys.push(Phoenix.bind('w', hotKey, function() {
+keys.push(new Key('w', hotKey, function() {
     focusApplicationIfRunning('有道词典');
 }));
-keys.push(Phoenix.bind('e', hotKey, function() {
+keys.push(new Key('e', hotKey, function() {
     focusApplicationIfRunning('NeteaseMusic');
 }));
-keys.push(Phoenix.bind('r', hotKey, function() {
-    focusApplicationIfRunning('Mail');
+keys.push(new Key('r', hotKey, function() {
+    focusApplicationIfRunning('AirMail 2');
 }));
-keys.push(Phoenix.bind('t', hotKey, function() {
-    focusApplicationIfRunning('Foxmail');
+keys.push(new Key('t', hotKey, function() {
+    focusApplicationIfRunning('Teambition');
 }));
 
-keys.push(Phoenix.bind('a', hotKey, function() {
+keys.push(new Key('a', hotKey, function() {
     focusApplicationIfRunning('钉钉');
 }));
-keys.push(Phoenix.bind('s', hotKey, function() {
+keys.push(new Key('s', hotKey, function() {
     focusApplicationIfRunning('Wechat');
 }));
-keys.push(Phoenix.bind('d', hotKey, function() {
+keys.push(new Key('d', hotKey, function() {
     focusApplicationIfRunning('QQ');
 }));
-keys.push(Phoenix.bind('f', hotKey, function() {
-    focusApplicationIfRunning('PubuIM');
+keys.push(new Key('f', hotKey, function() {
+    focusApplicationIfRunning('LeanChat');
+}));
+keys.push(new Key('g', hotKey, function() {
+    focusApplicationIfRunning('BearyChat');
+}));
+
+keys.push(new Key('v', hotKey, function() {
+    focusApplicationIfRunning('Calendar');
 }));
 // }}}
 
@@ -215,7 +225,7 @@ function getMacScreen(win) {
 }
 
 function fullScreen() {
-    var win = Window.focusedWindow();
+    var win = Window.focused();
     message(win.isFullScreen());
     if (!win.isVisible() || win.isMinimized()) return;
 
@@ -269,9 +279,9 @@ function focusAnotherScreen(window, targetScreen) {
 
 // 快捷键
 // 移动焦点到下一个屏幕
-keys.push(Phoenix.bind('l', hotKey, function() {
-    var window = Window.focusedWindow();
-    var allScreens = Screen.screens();
+keys.push(new Key('l', hotKey, function() {
+    var window = Window.focused();
+    var allScreens = Screen.all();
     var currentScreen = window.screen();
     var targetScreen = window.screen().next();
     if (_.indexOf(_.map(allScreens, function(x) {
@@ -285,9 +295,9 @@ keys.push(Phoenix.bind('l', hotKey, function() {
 }));
 
 // 移动焦点到上一个屏幕
-keys.push(Phoenix.bind('h', hotKey, function() {
-    var window = Window.focusedWindow();
-    var allScreens = Screen.screens();
+keys.push(new Key('h', hotKey, function() {
+    var window = Window.focused();
+    var allScreens = Screen.all();
     var currentScreen = window.screen();
     var targetScreen = window.screen().previous();
     if (_.indexOf(_.map(allScreens, function(x) {
@@ -301,8 +311,8 @@ keys.push(Phoenix.bind('h', hotKey, function() {
 }));
 
 // 移动窗口到上一个屏幕
-keys.push(Phoenix.bind('l', hotKeyShift, function() {
-    var window = Window.focusedWindow();
+keys.push(new Key('l', hotKeyShift, function() {
+    var window = Window.focused();
     if (!window) {
         return;
     }
@@ -317,8 +327,8 @@ keys.push(Phoenix.bind('l', hotKeyShift, function() {
 }));
 
 // 移动窗口到下一个屏幕
-keys.push(Phoenix.bind('h', hotKeyShift, function() {
-    var window = Window.focusedWindow();
+keys.push(new Key('h', hotKeyShift, function() {
+    var window = Window.focused();
     if (!window) {
         return;
     }
@@ -333,7 +343,7 @@ keys.push(Phoenix.bind('h', hotKeyShift, function() {
 }));
 
 // 全屏幕
-keys.push(Phoenix.bind('f', hotKeyShift, function() {
+keys.push(new Key('f', hotKeyShift, function() {
     fullScreen();
 }));
 
